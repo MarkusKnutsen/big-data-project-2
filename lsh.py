@@ -6,10 +6,12 @@ from pathlib import Path  # for paths of files
 import os  # for reading the input data
 import time  # for timing
 import random
+from itertools import combinations
 
 # Global parameters
 parameter_file = "default_parameters.ini"  # the main parameters file
-data_main_directory = Path("data")  # the main path were all the data directories are
+# the main path were all the data directories are
+data_main_directory = Path("data")
 parameters_dictionary = (
     dict()
 )  # dictionary that holds the input parameters, key = parameter name, value = value
@@ -44,7 +46,8 @@ def read_data(data_path):
             file_path = data_path / f
             doc = open(file_path).read().strip().replace("\n", " ")
             file_id = int(file_path.stem)
-            document_list[file_id] = doc
+            if file_id <= 100:
+                document_list[file_id] = doc
 
 
 # DO NOT CHANGE THIS METHOD
@@ -112,7 +115,7 @@ def k_shingles():
             break
 
         for i in range(len(doc) - k + 1):
-            shingle = doc[i : i + k]
+            shingle = doc[i: i + k]
             docs_k_shingles[id - 1].append(shingle.lower())
 
     return docs_k_shingles
@@ -141,8 +144,8 @@ def signature_set(k_shingles):
     for item in unique_shingles:
         iter += 1
 
-        if iter % 400 == 0:
-            print(iter / len(k_shingles), "% completed")
+        if iter % 1000 == 0:
+            print(iter, "/", len(unique_shingles), "done")
 
         column_index = 0
         for column in docs_sig_sets:
@@ -165,7 +168,7 @@ def minHash(docs_signature_sets):
     ps = parameters_dictionary["permutations"]
 
     # # Need to transpose the docs_signature_sets to visulaize better
-    dss_t = list(map(list, zip(*docs_signature_sets)))
+    # dss_t = list(map(list, zip(*docs_signature_sets)))
 
     # for elem in dss_t:
     #     print(elem)
@@ -196,14 +199,14 @@ def minHash(docs_signature_sets):
     # Need to transpose the min_hash_signatures to visulaize better
     dss_t = list(map(list, zip(*min_hash_signatures)))
 
-    for elem in dss_t:
-        print(elem)
+    # for elem in dss_t:
+    #     print(elem)
     return min_hash_signatures
 
 
 # METHOD FOR TASK 4
 # Hashes the MinHash Signature Matrix into buckets and find candidate similar documents
-def lsh(m_matrix):
+def lsh(m_matrix, shingles):
     candidates = []  # list of candidate sets of documents for checking similarity
 
     r = parameters_dictionary["r"]
@@ -215,14 +218,14 @@ def lsh(m_matrix):
     for i in range(bucket):
         buckets.append([])
 
-    # for b in range(int(bands)):
-    for b in range(1):
+    for b in range(int(bands)):
+        # for b in range(1):
         for row_index in range(len(m_matrix)):
             # Initializing the number used for the hashing function
             hash_number = 0
 
             # The vector containing the band we arre investigating
-            banded_values = m_matrix[row_index][((b + 1) * r) - r : (b + 1) * r]
+            banded_values = m_matrix[row_index][((b + 1) * r) - r: (b + 1) * r]
 
             # Creating the number use for the hashing function based on the values in the band
             for banded_values_index in range(len(banded_values)):
@@ -234,26 +237,43 @@ def lsh(m_matrix):
             hash_index = hash_number % bucket
 
             # Used to visualize in the debugging
-            print(
-                "Banded values: ",
-                banded_values,
-                ", Hash number: ",
-                hash_number,
-                ", Hash index: ",
-                hash_index,
-                ", Row index: ",
-                row_index,
-            )
+            # print(
+            #     "Banded values: ",
+            #     banded_values,
+            #     ", Hash number: ",
+            #     hash_number,
+            #     ", Hash index: ",
+            #     hash_index,
+            #     ", Row index: ",
+            #     row_index,
+            # )
 
             # Inserting the row index, which is the document number, into the corresponding bucket
             buckets[hash_index].append(row_index)
+        for bck in buckets:
+            # print(bck, 'Length: ', len(bck))
+            if len(bck) > 1:
+                candidates.append(list(combinations(bck.copy(), 2)))
+            bck.clear()
 
-        # Printing the buckets and their content for visualization
-        for elem in buckets:
-            print(elem)
+    candidates = [pair for sublist in candidates for pair in sublist]
 
-        # Lurer på hvordan jeg bruker det til å finne kandidater
-        # De lander i forskjellige buckets hver gang, hvorfor er det så tilfeldig? Har det noe å gjøre med min min-hashing?
+    unique_candidates = set(candidates)
+    pairs = {}
+
+    for pair in unique_candidates:
+        pairs[f'{pair}'] = candidates.count(pair)
+
+    print("-----('(PAIRS)', OCCURANCES ), Jaccard similarity-----")
+    sortedPairs = sorted(pairs.items(), key=lambda x: x[1], reverse=True)
+    print('-'*10, 'Top 25', '-'*10)
+    for elem in sortedPairs[:25]:
+        print(elem, '[ ', jaccard(set(m_matrix[eval(elem[0])[0]]),
+              set(m_matrix[eval(elem[0])[1]])), ' ]')
+    print('-'*10, 'Bottom 25', '-'*10)
+    for elem in sortedPairs[-25:]:
+        print(elem, '[ ', jaccard(set(shingles[eval(elem[0])[0]]),
+              set(shingles[eval(elem[0])[1]])), ' ]')
 
     return candidates
 
@@ -342,10 +362,9 @@ if __name__ == "__main__":
     # LSH
     print("Starting the Locality-Sensitive Hashing...")
     t10 = time.time()
-    candidate_docs = lsh(min_hash_signatures)
+    candidate_docs = lsh(min_hash_signatures, all_docs_k_shingles)
     t11 = time.time()
     print("LSH took", t11 - t10, "sec\n")
-
     # # Candidate similarities
     # print("Starting to calculate similarities of the candidate documents...")
     # t12 = time.time()
