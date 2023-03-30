@@ -171,6 +171,8 @@ def signature_set(k_shingles):
     # We create a list of the unique shingles, so to have a reference to the index of the unique shingles
     list_of_unique_shingles = list(unique_shingles)
 
+    print("The number of unique shingles:",len(list_of_unique_shingles))
+
     # Creating a dictionary for the indices of the shingles, so it is cost efficient to lookup later
     shingle_index_dict = {}
     i = 0
@@ -200,11 +202,6 @@ def signature_set(k_shingles):
 
 
 # Creates the minHash signatures after simulation of permutations
-
-def help(tuple):
-    if tuple[1] == 0:
-        return (100, 1)
-    return tuple
 
 
 def minHash(docs_signature_sets):
@@ -314,6 +311,8 @@ def lsh(m_matrix):
 
     # We turn the list of lists to a single list.
     candidates = [pair for sublist in candidates for pair in sublist]
+
+    print("Number of candidate pairs with r =", r, 'is', len(candidates))
 
     return candidates
 
